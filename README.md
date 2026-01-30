@@ -37,15 +37,26 @@ go build -o tsq ./cmd/tsq
 ### Query - Run custom tree-sitter queries
 
 ```bash
-# Query all function declarations
-tsq query -q '(function_declaration)' --path .
+# Query all function declarations (captures whole function)
+tsq query -q '(function_declaration) @fn' --path .
+
+# Extract function names only
+tsq query -q '(function_declaration name: (identifier) @name)' --path .
 
 # Query from a file
 tsq query --query-file myquery.scm --path ./src
 
 # Query a single file
-tsq query -q '(type_declaration)' --file main.go
+tsq query -q '(type_declaration) @type' --file main.go
 ```
+
+> **Tip:** Queries need `@name` captures to return useful data. Without captures,
+> you'll get matches with empty results. For example:
+> - `(function_declaration)` - matches but returns `"captures": null`
+> - `(function_declaration) @fn` - captures the whole function node
+> - `(function_declaration name: (identifier) @name)` - captures just the function name
+>
+> Run `tsq examples` for more query patterns.
 
 ### Symbols - Extract code symbols
 

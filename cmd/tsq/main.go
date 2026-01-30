@@ -36,11 +36,17 @@ func queryCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "query",
 		Usage: "run a tree-sitter query",
+		Description: "Execute a tree-sitter query on source files.\n\n" +
+			"Queries without @captures return matches with no data. " +
+			"Use @name syntax to capture nodes:\n" +
+			"  (function_declaration) @fn                       - captures whole function\n" +
+			"  (function_declaration name: (identifier) @name)  - captures just the name\n\n" +
+			"Run 'tsq examples' for more query patterns.",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "query",
 				Aliases: []string{"q"},
-				Usage:   "tree-sitter query string",
+				Usage:   "tree-sitter query (use @name to capture nodes, e.g. '(function_declaration) @fn')",
 			},
 			&cli.StringFlag{
 				Name:  "query-file",
