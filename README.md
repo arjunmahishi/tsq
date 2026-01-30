@@ -1,8 +1,13 @@
 # tsq - Tree-Sitter Query Tool
 
-**tsq** (tree-sitter query) is a command-line tool and Go library for exploring code structure using [tree-sitter](https://tree-sitter.github.io/tree-sitter/). Think of it as `jq` for code - query and extract structured information from source files.
+> **Note:** This project is in early development. APIs and CLI flags may change.
 
-Currently supports: **Go** (more languages coming soon)
+**tsq** (tree-sitter query) is a command-line tool and Go library for exploring
+code structure using [tree-sitter](https://tree-sitter.github.io/tree-sitter/).
+Think of it as `jq` for code - query and extract structured information from
+source files.
+
+Currently supports: **Go**. Extensible to other languages.
 
 ## Features
 
@@ -77,11 +82,13 @@ tsq refs --symbol MyFunc --path .
 # Search in a single file
 tsq refs --symbol MyType --file main.go
 
-# Without context
-tsq refs --symbol MyVar --path . --include-context=false
+# Include surrounding code context
+tsq refs --symbol MyVar --path . --include-context
 ```
 
-### Global Flags
+### Common Flags
+
+Most commands support these flags:
 
 - `--compact`: Minimize JSON output
 - `--jobs`, `-j`: Number of parallel workers (default: CPU count)
@@ -136,21 +143,6 @@ Find all references to a symbol.
 
 See [GoDoc](https://pkg.go.dev/github.com/arjunmahishi/tsq/tsq) for full API documentation.
 
-## Project Structure
-
-```
-tsq/
-├── cmd/tsq/         # CLI application
-├── tsq/             # Public API library
-│   ├── tsq.go       # Main API functions
-│   ├── types.go     # Public types
-│   ├── options.go   # Configuration options
-│   ├── language.go  # Language interface
-│   ├── go.go        # Go language support
-│   └── queries/go/  # Tree-sitter queries
-└── go.mod
-```
-
 ## Output Format
 
 All commands output JSON:
@@ -172,26 +164,3 @@ All commands output JSON:
   ]
 }
 ```
-
-## Supported Languages
-
-- ✅ Go
-- 🚧 Python (planned)
-- 🚧 JavaScript/TypeScript (planned)
-- 🚧 Rust (planned)
-
-## Why tsq?
-
-- **Fast**: Tree-sitter is faster than regex-based tools
-- **Accurate**: Understands code structure, not just text patterns
-- **Extensible**: Easy to add new languages and queries
-- **Composable**: JSON output works with `jq`, scripts, LLMs
-- **Library-first**: Use as CLI or embed in your Go programs
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions welcome! Please open an issue or PR.
