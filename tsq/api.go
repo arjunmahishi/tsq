@@ -231,20 +231,20 @@ func Refs(opts RefsOptions) (*RefsResult, error) {
 	}, nil
 }
 
-// Worker pool for Query
-func runQueryWorkers(language Language, query *query, files []FileJob, jobs int) []QueryMatch {
-	results := make(chan QueryMatch, 128)
+// runWorkers is a generic worker pool that processes files concurrently.
+// The process function is called for each file and should return a slice of results to emit.
+func runWorkers[R any](
+	language Language,
+	query *query,
+	files []FileJob,
+	jobs int,
+	process func(job FileJob, matches []QueryMatch, source []byte) []R,
+) []R {
+	results := make(chan R, 128)
 	jobQueue := make(chan FileJob, 128)
 	var wg sync.WaitGroup
 
-	workerCount := jobs
-	if workerCount < 1 {
-		workerCount = 1
-	}
-	if workerCount > len(files) {
-		workerCount = len(files)
-	}
-
+	workerCount := min(max(jobs, 1), len(files))
 	worker := func() {
 		defer wg.Done()
 		p := newParser(language)
@@ -254,14 +254,15 @@ func runQueryWorkers(language Language, query *query, files []FileJob, jobs int)
 				continue
 			}
 			matches := query.run(tree, source, job.DisplayPath)
-			for _, m := range matches {
-				results <- m
+			items := process(job, matches, source)
+			for _, item := range items {
+				results <- item
 			}
 		}
 	}
 
 	wg.Add(workerCount)
-	for i := 0; i < workerCount; i++ {
+	for range workerCount {
 		go worker()
 	}
 
@@ -277,12 +278,19 @@ func runQueryWorkers(language Language, query *query, files []FileJob, jobs int)
 		close(results)
 	}()
 
-	var allMatches []QueryMatch
-	for match := range results {
-		allMatches = append(allMatches, match)
+	var allResults []R
+	for result := range results {
+		allResults = append(allResults, result)
 	}
 
-	return allMatches
+	return allResults
+}
+
+// Worker pool for Query
+func runQueryWorkers(language Language, query *query, files []FileJob, jobs int) []QueryMatch {
+	return runWorkers(language, query, files, jobs, func(_ FileJob, matches []QueryMatch, _ []byte) []QueryMatch {
+		return matches
+	})
 }
 
 // Worker pool for Symbols
@@ -295,60 +303,16 @@ func runSymbolsWorkers(
 	includeSource bool,
 	maxSourceLines int,
 ) []SymbolsResult {
-	results := make(chan SymbolsResult, 128)
-	jobQueue := make(chan FileJob, 128)
-	var wg sync.WaitGroup
-
-	workerCount := jobs
-	if workerCount < 1 {
-		workerCount = 1
-	}
-	if workerCount > len(files) {
-		workerCount = len(files)
-	}
-
-	worker := func() {
-		defer wg.Done()
-		p := newParser(language)
-		for job := range jobQueue {
-			tree, source, err := p.parseFile(job.AbsPath)
-			if err != nil {
-				continue
-			}
-			matches := query.run(tree, source, job.DisplayPath)
-			symbols := extractSymbols(matches, source, visibility, includeSource, maxSourceLines)
-			if len(symbols) > 0 {
-				results <- SymbolsResult{
-					File:    job.DisplayPath,
-					Symbols: symbols,
-				}
-			}
+	return runWorkers(language, query, files, jobs, func(job FileJob, matches []QueryMatch, source []byte) []SymbolsResult {
+		symbols := extractSymbols(matches, visibility, includeSource, maxSourceLines)
+		if len(symbols) > 0 {
+			return []SymbolsResult{{
+				File:    job.DisplayPath,
+				Symbols: symbols,
+			}}
 		}
-	}
-
-	wg.Add(workerCount)
-	for i := 0; i < workerCount; i++ {
-		go worker()
-	}
-
-	go func() {
-		for _, f := range files {
-			jobQueue <- f
-		}
-		close(jobQueue)
-	}()
-
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	var allResults []SymbolsResult
-	for result := range results {
-		allResults = append(allResults, result)
-	}
-
-	return allResults
+		return nil
+	})
 }
 
 // Worker pool for Refs
@@ -360,67 +324,19 @@ func runRefsWorkers(
 	symbolName string,
 	includeContext bool,
 ) []Reference {
-	results := make(chan Reference, 128)
-	jobQueue := make(chan FileJob, 128)
-	var wg sync.WaitGroup
-
-	workerCount := jobs
-	if workerCount < 1 {
-		workerCount = 1
-	}
-	if workerCount > len(files) {
-		workerCount = len(files)
-	}
-
-	worker := func() {
-		defer wg.Done()
-		p := newParser(language)
-		for job := range jobQueue {
-			tree, source, err := p.parseFile(job.AbsPath)
-			if err != nil {
-				continue
-			}
-			matches := query.run(tree, source, job.DisplayPath)
-			refs := findReferences(matches, source, symbolName, includeContext)
-			for _, ref := range refs {
-				results <- ref
-			}
-		}
-	}
-
-	wg.Add(workerCount)
-	for i := 0; i < workerCount; i++ {
-		go worker()
-	}
-
-	go func() {
-		for _, f := range files {
-			jobQueue <- f
-		}
-		close(jobQueue)
-	}()
-
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	var allRefs []Reference
-	for ref := range results {
-		allRefs = append(allRefs, ref)
-	}
-
-	return allRefs
+	return runWorkers(language, query, files, jobs, func(job FileJob, matches []QueryMatch, source []byte) []Reference {
+		return findReferences(matches, source, symbolName, includeContext)
+	})
 }
 
 // Symbol extraction logic
 func extractSymbols(
-	matches []QueryMatch, source []byte, visibility string, includeSource bool, maxSourceLines int,
+	matches []QueryMatch, visibility string, includeSource bool, maxSourceLines int,
 ) []Symbol {
 	var symbols []Symbol
 
 	for _, match := range matches {
-		sym := parseSymbolFromMatch(match, source, includeSource, maxSourceLines)
+		sym := parseSymbolFromMatch(match, includeSource, maxSourceLines)
 		if sym == nil {
 			continue
 		}
@@ -443,9 +359,7 @@ func extractSymbols(
 	return symbols
 }
 
-func parseSymbolFromMatch(
-	match QueryMatch, source []byte, includeSource bool, maxSourceLines int,
-) *Symbol {
+func parseSymbolFromMatch(match QueryMatch, includeSource bool, maxSourceLines int) *Symbol {
 	captures := make(map[string]CaptureResult)
 	for _, c := range match.Captures {
 		captures[c.Name] = c
