@@ -117,6 +117,53 @@ keys in the result. See existing queries in `tsq/queries/go/` for examples.
 - `github.com/smacker/go-tree-sitter` - Tree-sitter Go bindings
 - `github.com/smacker/go-tree-sitter/golang` - Go language grammar
 - `github.com/urfave/cli/v3` - CLI framework
+- `github.com/cockroachdb/datadriven` - Data-driven testing
+- `github.com/stretchr/testify` - Test assertions
+
+## Testing
+
+### Data-Driven Test Harness
+
+Tests use `github.com/cockroachdb/datadriven` for declarative, data-driven testing.
+**No mocking** - tests generate real Go code files on the fly and run the APIs against them.
+
+**Test files location:** `tsq/testdata/`
+- `symbols.txt` - Symbol extraction tests
+- `outline.txt` - File outline tests
+- `refs.txt` - Reference finding tests
+- `query.txt` - Custom query tests
+
+**Test file format:**
+```
+# Comments start with #
+
+file name=example.go
+package main
+
+func Hello() {}
+----
+
+symbols file=example.go visibility=public
+----
+function Hello public
+```
+
+**Commands available in test files:**
+
+| Command | Args | Description |
+|---------|------|-------------|
+| `file` | `name=<path>` | Create a file with the input content |
+| `query` | `q=<query>` `[file=<name>]` | Run tsq.Query() |
+| `symbols` | `[file=<name>]` `[visibility=all\|public\|private]` | Run tsq.Symbols() |
+| `outline` | `file=<name>` | Run tsq.Outline() |
+| `refs` | `symbol=<name>` `[file=<name>]` | Run tsq.Refs() |
+
+**Writing new tests:**
+1. Add test cases to existing `testdata/*.txt` files or create new ones
+2. Use `file` command to create code snippets
+3. Call the API with appropriate command and args
+4. Specify expected output after `----`
+5. Run with `-rewrite` to capture initial output, then verify correctness
 
 ## Debugging tree-sitter queries
 

@@ -18,15 +18,13 @@
     type: (_) @type_def)) @type
 
 ; Const declarations
-(const_declaration
-  (const_spec
-    name: (identifier) @name
-    type: (_)? @type
-    value: (_)? @value)) @const
+(const_spec
+  name: (identifier) @name
+  type: (_)? @type
+  value: (_)? @value) @const
 
 ; Var declarations
-(var_declaration
-  (var_spec
-    name: (identifier) @name
-    type: (_)? @type
-    value: (_)? @value)) @var
+(var_spec
+  name: (identifier) @name
+  type: (_)? @type
+  value: (_)? @value) @var

@@ -1,0 +1,128 @@
+# Query function names
+
+file name=funcs.go
+package main
+
+func Alpha() {}
+func Beta() {}
+func gamma() {}
+----
+
+query q=((function_declaration name: (identifier) @name)) file=funcs.go
+----
+@name: Alpha (funcs.go:3:6)
+@name: Beta (funcs.go:4:6)
+@name: gamma (funcs.go:5:6)
+
+# Query function declarations with parameters
+
+file name=params.go
+package main
+
+func Add(a, b int) int {
+	return a + b
+}
+----
+
+query q=((function_declaration name: (identifier) @name parameters: (parameter_list) @params)) file=params.go
+----
+@name: Add (params.go:3:6)
+@params: (a, b int) (params.go:3:9)
+
+# Query type definitions
+
+file name=types.go
+package main
+
+type User struct {
+	Name string
+}
+
+type Admin struct {
+	User
+	Level int
+}
+----
+
+query q=((type_spec name: (type_identifier) @name type: (struct_type) @def)) file=types.go
+----
+@name: User (types.go:3:6)
+@def: struct {
+	Name string
+} (types.go:3:11)
+@name: Admin (types.go:7:6)
+@def: struct {
+	User
+	Level int
+} (types.go:7:12)
+
+# Query imports
+
+file name=imports.go
+package main
+
+import (
+	"fmt"
+	str "strings"
+)
+----
+
+query q=((import_spec path: (interpreted_string_literal) @path)) file=imports.go
+----
+@path: "fmt" (imports.go:4:2)
+@path: "strings" (imports.go:5:6)
+
+# Query method declarations
+
+file name=methods.go
+package main
+
+type Counter struct {
+	count int
+}
+
+func (c *Counter) Increment() {
+	c.count++
+}
+
+func (c Counter) Value() int {
+	return c.count
+}
+----
+
+query q=((method_declaration receiver: (parameter_list) @receiver name: (field_identifier) @name)) file=methods.go
+----
+@receiver: (c *Counter) (methods.go:7:6)
+@name: Increment (methods.go:7:19)
+@receiver: (c Counter) (methods.go:11:6)
+@name: Value (methods.go:11:18)
+
+# Query with no matches
+
+file name=empty.go
+package main
+
+const Version = "1.0"
+----
+
+query q=((function_declaration) @fn) file=empty.go
+----
+(no matches)
+
+# Query variable declarations
+
+file name=vars.go
+package main
+
+var (
+	Name    string
+	Age     int
+	enabled bool
+)
+----
+
+query q=((var_spec name: (identifier) @name)) file=vars.go
+----
+@name: Name (vars.go:4:2)
+@name: Age (vars.go:5:2)
+@name: enabled (vars.go:6:2)

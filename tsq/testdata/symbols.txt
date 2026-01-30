@@ -1,0 +1,138 @@
+# Basic function extraction
+
+file name=main.go
+package main
+
+func Hello() string {
+	return "hello"
+}
+
+func goodbye() {
+}
+----
+
+symbols file=main.go
+----
+function Hello public
+function goodbye private
+
+# Filter by visibility - public only
+
+symbols file=main.go visibility=public
+----
+function Hello public
+
+# Filter by visibility - private only
+
+symbols file=main.go visibility=private
+----
+function goodbye private
+
+# Methods with receiver
+
+file name=types.go
+package main
+
+type Foo struct {
+	Name string
+}
+
+func (f *Foo) Bar() string {
+	return f.Name
+}
+
+func (f Foo) baz() int {
+	return 42
+}
+----
+
+symbols file=types.go
+----
+struct Foo public
+method (Foo) Bar public
+method (Foo) baz private
+
+# Type declarations
+
+file name=defs.go
+package main
+
+type PublicType int
+type privateType string
+
+type MyStruct struct {
+	Field string
+}
+
+type MyInterface interface {
+	Method() error
+}
+----
+
+symbols file=defs.go
+----
+type PublicType public
+type privateType private
+struct MyStruct public
+interface MyInterface public
+
+# Constants and variables
+
+file name=vars.go
+package main
+
+const MaxSize = 100
+const minSize = 10
+
+var GlobalVar string
+var localVar int
+----
+
+symbols file=vars.go
+----
+const MaxSize public
+const minSize private
+var GlobalVar public
+var localVar private
+
+# Mixed file with all symbol types
+
+file name=mixed.go
+package main
+
+import "fmt"
+
+const Version = "1.0"
+
+type Config struct {
+	Port int
+}
+
+func (c *Config) Validate() error {
+	return nil
+}
+
+func NewConfig() *Config {
+	return &Config{Port: 8080}
+}
+
+var defaultConfig = NewConfig()
+----
+
+symbols file=mixed.go
+----
+const Version public
+struct Config public
+method (Config) Validate public
+function NewConfig public
+var defaultConfig private
+
+# Empty file
+
+file name=empty.go
+package main
+----
+
+symbols file=empty.go
+----
+(no symbols)

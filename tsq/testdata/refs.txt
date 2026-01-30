@@ -1,0 +1,115 @@
+# Find function call references
+
+file name=main.go
+package main
+
+func Hello() string {
+	return "hello"
+}
+
+func main() {
+	Hello()
+	msg := Hello()
+	println(msg)
+}
+----
+
+refs symbol=Hello file=main.go
+----
+identifier main.go:3:6
+call main.go:8:2
+identifier main.go:8:2
+call main.go:9:9
+identifier main.go:9:9
+
+# Find type references
+
+file name=types.go
+package main
+
+type Config struct {
+	Port int
+}
+
+func NewConfig() *Config {
+	return &Config{Port: 8080}
+}
+
+var cfg Config
+----
+
+refs symbol=Config file=types.go
+----
+type_ref types.go:3:6
+type_ref types.go:7:19
+type_ref types.go:8:10
+type_ref types.go:8:10
+type_ref types.go:11:9
+
+# Find references across multiple uses
+
+file name=multi.go
+package main
+
+const MaxSize = 100
+
+func process(size int) bool {
+	return size < MaxSize
+}
+
+func validate() error {
+	if MaxSize == 0 {
+		return errors.New("invalid")
+	}
+	return nil
+}
+----
+
+refs symbol=MaxSize file=multi.go
+----
+identifier multi.go:3:7
+identifier multi.go:6:16
+identifier multi.go:10:5
+
+# No references found
+
+file name=unused.go
+package main
+
+func Unused() {}
+
+func main() {
+	println("hello")
+}
+----
+
+refs symbol=Unused file=unused.go
+----
+identifier unused.go:3:6
+
+# Find variable references
+
+file name=vars.go
+package main
+
+var counter int
+
+func increment() {
+	counter++
+}
+
+func reset() {
+	counter = 0
+}
+
+func get() int {
+	return counter
+}
+----
+
+refs symbol=counter file=vars.go
+----
+identifier vars.go:3:5
+identifier vars.go:6:2
+identifier vars.go:10:2
+identifier vars.go:14:9

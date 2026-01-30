@@ -454,7 +454,21 @@ func parseSymbolFromMatch(
 	var sym Symbol
 
 	// Determine kind based on capture names
-	if _, ok := captures["function"]; ok {
+	// Check const/var FIRST before checking for "type" capture
+	// because const/var have a @type capture for type annotations
+	if _, ok := captures["const"]; ok {
+		sym.Kind = "const"
+		if name, ok := captures["name"]; ok {
+			sym.Name = name.Text
+			sym.Range = name.Range
+		}
+	} else if _, ok := captures["var"]; ok {
+		sym.Kind = "var"
+		if name, ok := captures["name"]; ok {
+			sym.Name = name.Text
+			sym.Range = name.Range
+		}
+	} else if _, ok := captures["function"]; ok {
 		sym.Kind = "function"
 		if name, ok := captures["name"]; ok {
 			sym.Name = name.Text
@@ -488,18 +502,6 @@ func parseSymbolFromMatch(
 			sym.Range = name.Range
 		}
 		sym.Range = typeDef.Range
-	} else if _, ok := captures["const"]; ok {
-		sym.Kind = "const"
-		if name, ok := captures["name"]; ok {
-			sym.Name = name.Text
-			sym.Range = name.Range
-		}
-	} else if _, ok := captures["var"]; ok {
-		sym.Kind = "var"
-		if name, ok := captures["name"]; ok {
-			sym.Name = name.Text
-			sym.Range = name.Range
-		}
 	} else {
 		return nil
 	}

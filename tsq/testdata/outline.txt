@@ -1,0 +1,137 @@
+# Basic outline with package and imports
+
+file name=main.go
+package main
+
+import (
+	"fmt"
+	str "strings"
+	"os"
+)
+
+func main() {
+	fmt.Println("hello")
+}
+----
+
+outline file=main.go
+----
+package: main
+imports:
+  fmt
+  strings (alias: str)
+  os
+symbols:
+  function main private
+
+# Outline with types and methods
+
+file name=types.go
+package mypackage
+
+import "errors"
+
+type Config struct {
+	Port int
+}
+
+func (c *Config) Validate() error {
+	if c.Port == 0 {
+		return errors.New("port required")
+	}
+	return nil
+}
+
+func NewConfig(port int) *Config {
+	return &Config{Port: port}
+}
+----
+
+outline file=types.go
+----
+package: mypackage
+imports:
+  errors
+symbols:
+  struct Config public
+  method (Config) Validate public
+  function NewConfig public
+
+# Outline with interface
+
+file name=iface.go
+package api
+
+type Handler interface {
+	Handle(req Request) Response
+}
+
+type Request struct {
+	Body string
+}
+
+type Response struct {
+	Status int
+}
+----
+
+outline file=iface.go
+----
+package: api
+symbols:
+  interface Handler public
+  struct Request public
+  struct Response public
+
+# Outline with constants and variables
+
+file name=config.go
+package config
+
+const (
+	DefaultPort = 8080
+	MaxRetries  = 3
+)
+
+var (
+	Version = "1.0.0"
+	debug   = false
+)
+----
+
+outline file=config.go
+----
+package: config
+symbols:
+  const DefaultPort public
+  const MaxRetries public
+  var Version public
+  var debug private
+
+# Empty file with only package
+
+file name=empty.go
+package empty
+----
+
+outline file=empty.go
+----
+package: empty
+
+# File with type aliases
+
+file name=aliases.go
+package types
+
+type StringMap map[string]string
+type Handler func(string) error
+type IntSlice []int
+----
+
+outline file=aliases.go
+----
+package: types
+symbols:
+  type StringMap public
+  type Handler public
+  type IntSlice public

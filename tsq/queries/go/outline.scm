@@ -64,11 +64,9 @@
     type: (function_type) @func_type_body)) @type_func
 
 ; Const declarations
-(const_declaration
-  (const_spec
-    name: (identifier) @const_name)) @const
+(const_spec
+  name: (identifier) @const_name) @const
 
-; Var declarations  
-(var_declaration
-  (var_spec
-    name: (identifier) @var_name)) @var
+; Var declarations
+(var_spec
+  name: (identifier) @var_name) @var
