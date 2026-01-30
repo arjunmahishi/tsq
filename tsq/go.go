@@ -1,4 +1,4 @@
-package lang
+package tsq
 
 import (
 	_ "embed"

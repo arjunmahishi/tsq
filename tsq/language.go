@@ -1,5 +1,4 @@
-// Package lang defines language interfaces and registry for codesitter.
-package lang
+package tsq
 
 import sitter "github.com/smacker/go-tree-sitter"
 
@@ -21,7 +20,6 @@ type Language interface {
 	OutlineQuery() string
 
 	// RefsQuery returns the tree-sitter query for finding references.
-	// The symbolName parameter can be used to filter references.
 	RefsQuery() string
 }
 
@@ -29,6 +27,7 @@ type Language interface {
 var registry = make(map[string]Language)
 
 // Register adds a language to the registry.
+// This is typically called from init() functions in language implementation files.
 func Register(lang Language) {
 	registry[lang.Name()] = lang
 }

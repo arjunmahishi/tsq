@@ -1,53 +1,50 @@
-// Package parser provides tree-sitter parsing and query execution.
-package parser
+package tsq
 
 import (
-	"codesitter/lang"
-	"codesitter/types"
 	"fmt"
 	"os"
 
 	sitter "github.com/smacker/go-tree-sitter"
 )
 
-// Parser wraps a tree-sitter parser for a specific language.
-type Parser struct {
+// parser wraps a tree-sitter parser for a specific language.
+type parser struct {
 	parser *sitter.Parser
-	lang   lang.Language
+	lang   Language
 }
 
-// New creates a new Parser for the given language.
-func New(language lang.Language) *Parser {
+// newParser creates a new parser for the given language.
+func newParser(language Language) *parser {
 	p := sitter.NewParser()
 	p.SetLanguage(language.TreeSitterLang())
-	return &Parser{
+	return &parser{
 		parser: p,
 		lang:   language,
 	}
 }
 
-// Parse parses source code and returns the syntax tree.
-func (p *Parser) Parse(source []byte) *sitter.Tree {
+// parse parses source code and returns the syntax tree.
+func (p *parser) parse(source []byte) *sitter.Tree {
 	return p.parser.Parse(nil, source)
 }
 
-// ParseFile reads and parses a file.
-func (p *Parser) ParseFile(path string) (*sitter.Tree, []byte, error) {
+// parseFile reads and parses a file.
+func (p *parser) parseFile(path string) (*sitter.Tree, []byte, error) {
 	source, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read file: %w", err)
 	}
-	return p.Parse(source), source, nil
+	return p.parse(source), source, nil
 }
 
-// Query represents a compiled tree-sitter query.
-type Query struct {
+// query represents a compiled tree-sitter query.
+type query struct {
 	query        *sitter.Query
 	captureNames []string
 }
 
-// NewQuery compiles a tree-sitter query string.
-func NewQuery(queryStr string, language lang.Language) (*Query, error) {
+// newQuery compiles a tree-sitter query string.
+func newQuery(queryStr string, language Language) (*query, error) {
 	q, err := sitter.NewQuery([]byte(queryStr), language.TreeSitterLang())
 	if err != nil {
 		return nil, fmt.Errorf("compile query: %w", err)
@@ -59,25 +56,25 @@ func NewQuery(queryStr string, language lang.Language) (*Query, error) {
 		captureNames[i] = q.CaptureNameForId(uint32(i))
 	}
 
-	return &Query{
+	return &query{
 		query:        q,
 		captureNames: captureNames,
 	}, nil
 }
 
-// Run executes the query on a syntax tree and returns matches.
-func (q *Query) Run(tree *sitter.Tree, source []byte, displayPath string) []types.QueryMatch {
+// run executes the query on a syntax tree and returns matches.
+func (q *query) run(tree *sitter.Tree, source []byte, displayPath string) []QueryMatch {
 	cursor := sitter.NewQueryCursor()
 	cursor.Exec(q.query, tree.RootNode())
 
-	var matches []types.QueryMatch
+	var matches []QueryMatch
 	for {
 		match, ok := cursor.NextMatch()
 		if !ok {
 			break
 		}
 
-		result := types.QueryMatch{
+		result := QueryMatch{
 			File:    displayPath,
 			Pattern: int(match.PatternIndex),
 		}
@@ -88,13 +85,13 @@ func (q *Query) Run(tree *sitter.Tree, source []byte, displayPath string) []type
 			start := node.StartPoint()
 			end := node.EndPoint()
 
-			result.Captures = append(result.Captures, types.CaptureResult{
+			result.Captures = append(result.Captures, CaptureResult{
 				Name:     name,
 				NodeType: node.Type(),
 				Text:     node.Content(source),
-				Range: types.Range{
-					Start: types.Position{Line: int(start.Row) + 1, Column: int(start.Column) + 1},
-					End:   types.Position{Line: int(end.Row) + 1, Column: int(end.Column) + 1},
+				Range: Range{
+					Start: Position{Line: int(start.Row) + 1, Column: int(start.Column) + 1},
+					End:   Position{Line: int(end.Row) + 1, Column: int(end.Column) + 1},
 				},
 			})
 		}
@@ -105,7 +102,7 @@ func (q *Query) Run(tree *sitter.Tree, source []byte, displayPath string) []type
 	return matches
 }
 
-func (q *Query) captureName(index uint32) string {
+func (q *query) captureName(index uint32) string {
 	if int(index) >= len(q.captureNames) {
 		return fmt.Sprintf("capture_%d", index)
 	}

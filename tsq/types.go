@@ -1,5 +1,5 @@
-// Package types defines shared data types for codesitter.
-package types
+// Package tsq provides a tree-sitter based API for exploring code.
+package tsq
 
 // Position represents a location in a source file.
 type Position struct {
@@ -32,8 +32,8 @@ type ImportInfo struct {
 	Alias string `json:"alias,omitempty"`
 }
 
-// Outline represents the structural overview of a file.
-type Outline struct {
+// FileOutline represents the structural overview of a file.
+type FileOutline struct {
 	File    string       `json:"file"`
 	Package string       `json:"package"`
 	Imports []ImportInfo `json:"imports,omitempty"`

@@ -1,4 +1,4 @@
-module codesitter
+module github.com/arjunmahishi/tsq
 
 go 1.22
 
