@@ -1,0 +1,759 @@
+# tsq - Tree-Sitter Query Examples for Go
+# Use these patterns with: tsq query -q '<pattern>' --path .
+#
+# Tip: Queries without @captures return matches with no data!
+# Always use @name to capture nodes you want to extract.
+
+# ==============================================================================
+# BASIC PATTERNS - Start Here
+# ==============================================================================
+
+# --- Functions ---
+
+# Find all function declarations (captures whole function)
+(function_declaration) @fn
+
+# Extract just function names
+(function_declaration name: (identifier) @name)
+
+# Find functions with their parameters and return types
+(function_declaration
+  name: (identifier) @name
+  parameters: (parameter_list) @params
+  result: (_)? @result) @fn
+
+# Find functions that return errors (second return value)
+(function_declaration
+  name: (identifier) @name
+  result: (parameter_list
+    (parameter_declaration
+      type: (type_identifier) @type
+      (#eq? @type "error")))) @error_returning_fn
+
+# Find functions with context.Context as first parameter
+(function_declaration
+  name: (identifier) @name
+  parameters: (parameter_list
+    .
+    (parameter_declaration
+      type: (qualified_type
+        package: (package_identifier) @pkg
+        name: (type_identifier) @type)
+      (#eq? @pkg "context")
+      (#eq? @type "Context"))))
+
+# Find constructor functions (NewXxx pattern)
+(function_declaration
+  name: (identifier) @name
+  (#match? @name "^New[A-Z]")) @constructor
+
+# --- Methods ---
+
+# Find all method declarations
+(method_declaration
+  receiver: (parameter_list) @receiver
+  name: (field_identifier) @name) @method
+
+# Find pointer receiver methods
+(method_declaration
+  receiver: (parameter_list
+    (parameter_declaration
+      type: (pointer_type) @ptr_type))
+  name: (field_identifier) @name) @ptr_method
+
+# Find value receiver methods
+(method_declaration
+  receiver: (parameter_list
+    (parameter_declaration
+      type: (type_identifier) @type))
+  name: (field_identifier) @name) @value_method
+
+# Find methods for a specific type
+(method_declaration
+  receiver: (parameter_list
+    (parameter_declaration
+      type: (pointer_type
+        (type_identifier) @recv_type)
+      (#eq? @recv_type "Server")))
+  name: (field_identifier) @name)
+
+# Find getter methods (Value() pattern)
+(method_declaration
+  name: (field_identifier) @name
+  (#match? @name "^Get|^Is|^Has")
+  parameters: (parameter_list)) @getter
+
+# --- Types ---
+
+# Find all struct types with their names
+(type_declaration
+  (type_spec
+    name: (type_identifier) @name
+    type: (struct_type) @struct))
+
+# Find structs with JSON tags
+(type_declaration
+  (type_spec
+    name: (type_identifier) @struct_name
+    type: (struct_type
+      (field_declaration_list
+        (field_declaration
+          tag: (raw_string_literal) @tag
+          (#match? @tag "json:"))))))
+
+# Find all interface definitions
+(type_declaration
+  (type_spec
+    name: (type_identifier) @name
+    type: (interface_type) @interface))
+
+# Find empty interfaces (interface{})
+(interface_type
+  (method_spec_list)) @empty_interface
+
+# Find type aliases
+(type_declaration
+  (type_spec
+    name: (type_identifier) @name
+    type: (type_identifier) @alias))
+
+# Find struct field declarations
+(struct_type
+  (field_declaration_list
+    (field_declaration
+      name: (field_identifier) @field_name
+      type: (_) @field_type)))
+
+# Find embedded structs (anonymous fields)
+(struct_type
+  (field_declaration_list
+    (field_declaration
+      type: (type_identifier) @embedded
+      !name)))
+
+# ==============================================================================
+# TYPE SYSTEM PATTERNS
+# ==============================================================================
+
+# Find pointer types
+(pointer_type) @ptr_type
+
+# Find map types with key and value types
+(map_type
+  key: (_) @key_type
+  value: (_) @value_type) @map_type
+
+# Find slice types
+(slice_type element: (_) @elem_type) @slice_type
+
+# Find array types (fixed size)
+(array_type
+  length: (_) @length
+  element: (_) @elem_type) @array_type
+
+# Find channel types
+(channel_type) @chan_type
+
+# Find qualified types (pkg.Type)
+(qualified_type
+  package: (package_identifier) @pkg
+  name: (type_identifier) @type) @qualified
+
+# Find function types (func signatures as types)
+(function_type
+  parameters: (parameter_list) @params
+  result: (_)? @result) @func_type
+
+# ==============================================================================
+# CONCURRENCY PATTERNS
+# ==============================================================================
+
+# Find goroutines (go statements)
+(go_statement
+  (call_expression
+    function: (_) @fn)) @goroutine
+
+# Find goroutines with anonymous functions
+(go_statement
+  (call_expression
+    function: (func_literal) @anon_fn)) @goroutine_anon
+
+# Find defer statements
+(defer_statement
+  (call_expression
+    function: (_) @fn)) @defer
+
+# Find channel send operations
+(send_statement
+  channel: (_) @chan
+  value: (_) @val) @send
+
+# Find channel receives in assignments
+(short_var_declaration
+  left: (expression_list (_) @var)
+  right: (expression_list
+    (unary_expression
+      operator: "<-"
+      operand: (_) @chan))) @chan_recv
+
+# Find select statements (for channel multiplexing)
+(select_statement) @select
+
+# Find channel creation with make
+(call_expression
+  function: (identifier) @fn
+  (#eq? @fn "make")
+  arguments: (argument_list
+    (channel_type) @chan_type)) @make_channel
+
+# ==============================================================================
+# IMPORTS
+# ==============================================================================
+
+# Find all import declarations
+(import_declaration) @import
+
+# Find individual import specs with path
+(import_spec path: (interpreted_string_literal) @path)
+
+# Find named imports (aliases)
+(import_spec
+  name: (package_identifier) @alias
+  path: (interpreted_string_literal) @path)
+
+# Find dot imports (. "pkg")
+(import_spec
+  name: (dot) @dot
+  path: (interpreted_string_literal) @path)
+
+# Find blank imports (_ "pkg")
+(import_spec
+  name: (blank_identifier) @blank
+  path: (interpreted_string_literal) @path)
+
+# Find specific package imports
+(import_spec
+  path: (interpreted_string_literal) @path
+  (#match? @path "testing"))
+
+# ==============================================================================
+# VARIABLES AND CONSTANTS
+# ==============================================================================
+
+# Find variable declarations
+(var_declaration) @var
+
+# Find short variable declarations (x := y)
+(short_var_declaration
+  left: (expression_list) @vars
+  right: (expression_list) @vals) @short_var
+
+# Find multiple return value assignments
+(short_var_declaration
+  left: (expression_list (_) @var1 (_) @var2)
+  right: (expression_list
+    (call_expression) @call)) @multi_assign
+
+# Find constant declarations
+(const_declaration) @const
+
+# Find constant declarations with values
+(const_declaration
+  (const_spec
+    name: (identifier) @name
+    value: (_) @value))
+
+# Find iota usage in constants
+(const_declaration
+  (const_spec
+    value: (identifier) @val
+    (#eq? @val "iota")))
+
+# ==============================================================================
+# FUNCTION CALLS AND EXPRESSIONS
+# ==============================================================================
+
+# Find function calls
+(call_expression function: (identifier) @func)
+
+# Find method calls (obj.Method())
+(call_expression
+  function: (selector_expression
+    operand: (_) @receiver
+    field: (field_identifier) @method))
+
+# Find chained method calls (obj.Method1().Method2())
+(call_expression
+  function: (selector_expression
+    operand: (call_expression) @chain
+    field: (field_identifier) @method))
+
+# Find Go builtin function calls
+(call_expression
+  function: (identifier) @fn
+  (#match? @fn "^(make|append|len|cap|new|close|delete|copy|panic|recover|print|println)$")) @builtin
+
+# Find append calls specifically
+(call_expression
+  function: (identifier) @fn
+  (#eq? @fn "append")
+  arguments: (argument_list
+    (_) @slice
+    (_)* @values)) @append_call
+
+# Find type assertions (x.(Type))
+(type_assertion_expression
+  operand: (_) @expr
+  type: (_) @type) @type_assert
+
+# Find type assertion with ok check (x, ok := y.(Type))
+(short_var_declaration
+  right: (expression_list
+    (type_assertion_expression
+      operand: (_) @expr
+      type: (_) @type))) @type_assert_check
+
+# Find composite literals (struct/array/slice initialization)
+(composite_literal
+  type: (_) @type
+  body: (_) @body) @literal
+
+# Find keyed elements in struct literals (Field: value)
+(keyed_element
+  (literal_element
+    (identifier) @key)
+  (literal_element) @val)
+
+# Find slice expressions (s[1:3])
+(slice_expression
+  operand: (_) @operand
+  start: (_)? @start
+  end: (_)? @end) @slice
+
+# Find index expressions (arr[i])
+(index_expression
+  operand: (_) @operand
+  index: (_) @index) @idx
+
+# Find anonymous functions (func literals)
+(func_literal
+  parameters: (parameter_list) @params
+  result: (_)? @result
+  body: (block) @body) @anon_func
+
+# ==============================================================================
+# OPERATORS AND EXPRESSIONS
+# ==============================================================================
+
+# Find address-of operations (&x)
+(unary_expression
+  operator: "&"
+  operand: (_) @operand) @addr
+
+# Find pointer dereferences (*x)
+(unary_expression
+  operator: "*"
+  operand: (_) @operand) @deref
+
+# Find negations (!x)
+(unary_expression
+  operator: "!"
+  operand: (_) @operand) @not
+
+# Find increment/decrement (x++, x--)
+(inc_statement (_) @var) @increment
+(dec_statement (_) @var) @decrement
+
+# Find assignments (x = y)
+(assignment_statement
+  left: (_) @lhs
+  right: (_) @rhs) @assign
+
+# Find compound assignments (x += y)
+(assignment_statement
+  left: (_) @lhs
+  operator: ("+=" | "-=" | "*=" | "/=") @op
+  right: (_) @rhs) @compound_assign
+
+# ==============================================================================
+# ERROR HANDLING PATTERNS
+# ==============================================================================
+
+# Find if err != nil checks
+(if_statement
+  condition: (binary_expression
+    left: (identifier) @var
+    (#eq? @var "err")
+    operator: "!="
+    right: (nil))) @err_check
+
+# Find error returns
+(return_statement
+  (expression_list
+    (identifier) @err
+    (#eq? @err "err"))) @return_err
+
+# Find error creation with errors.New
+(call_expression
+  function: (selector_expression
+    operand: (identifier) @pkg
+    field: (field_identifier) @fn
+    (#eq? @pkg "errors")
+    (#eq? @fn "New"))) @errors_new
+
+# Find error wrapping with fmt.Errorf
+(call_expression
+  function: (selector_expression
+    operand: (identifier) @pkg
+    field: (field_identifier) @fn
+    (#eq? @pkg "fmt")
+    (#eq? @fn "Errorf"))) @fmt_errorf
+
+# Find ignored errors (_ = fn())
+(assignment_statement
+  left: (expression_list
+    (blank_identifier) @blank)
+  right: (expression_list
+    (call_expression) @call)) @ignored_error
+
+# Find multiple return with error
+(return_statement
+  (expression_list
+    (_) @value
+    (identifier) @err
+    (#eq? @err "err"))) @return_with_err
+
+# Find nil checks (x == nil or x != nil)
+(binary_expression
+  left: (_) @left
+  operator: ("==" | "!=") @op
+  right: (nil) @nil) @nil_check
+
+# ==============================================================================
+# CONTROL FLOW
+# ==============================================================================
+
+# Find all for loops
+(for_statement) @for
+
+# Find range loops
+(for_statement
+  (range_clause
+    left: (expression_list) @vars
+    right: (_) @collection)) @for_range
+
+# Find traditional for loops (for i := 0; i < n; i++)
+(for_statement
+  initializer: (_) @init
+  condition: (_) @cond
+  update: (_) @update) @for_traditional
+
+# Find infinite loops (for { })
+(for_statement
+  body: (block) @body
+  !condition
+  !initializer
+  !update) @for_infinite
+
+# Find all if statements
+(if_statement) @if
+
+# Find if-else statements
+(if_statement
+  consequence: (block) @then
+  alternative: (block) @else) @if_else
+
+# Find if statements with initialization (if x := fn(); x != nil)
+(if_statement
+  initializer: (_) @init
+  condition: (_) @cond) @if_with_init
+
+# Find switch statements
+(expression_switch_statement) @switch
+
+# Find type switch statements
+(type_switch_statement) @type_switch
+
+# Find select statements (channel multiplexing)
+(select_statement) @select
+
+# Find break statements
+(break_statement) @break
+
+# Find continue statements
+(continue_statement) @continue
+
+# Find return statements
+(return_statement) @return
+
+# Find return statements with multiple values
+(return_statement
+  (expression_list
+    (_) @ret1
+    (_) @ret2)) @multi_return
+
+# Find naked returns (return with no values in functions with named returns)
+(return_statement
+  !argument) @naked_return
+
+# ==============================================================================
+# COMMENTS AND DOCUMENTATION
+# ==============================================================================
+
+# Find all comments
+(comment) @comment
+
+# Find TODO comments
+(comment) @todo
+(#match? @todo "TODO|FIXME|XXX|HACK|NOTE")
+
+# Find package documentation (comments before package declaration)
+(comment) @doc
+.
+(package_clause)
+
+# Find function documentation (comments before function)
+(comment) @doc
+.
+(function_declaration)
+
+# ==============================================================================
+# STRING AND LITERALS
+# ==============================================================================
+
+# Find all interpreted string literals ("...")
+(interpreted_string_literal) @string
+
+# Find raw string literals (`...`)
+(raw_string_literal) @raw_string
+
+# Find format strings (strings with % in fmt functions)
+(call_expression
+  function: (selector_expression
+    operand: (identifier) @pkg
+    (#match? @pkg "fmt"))
+  arguments: (argument_list
+    (interpreted_string_literal) @fmt_string
+    (#match? @fmt_string "%")))
+
+# Find integer literals
+(int_literal) @int
+
+# Find float literals
+(float_literal) @float
+
+# Find boolean literals
+((true) @bool) @true_lit
+((false) @bool) @false_lit
+
+# Find nil literals
+(nil) @nil_lit
+
+# ==============================================================================
+# TESTING PATTERNS
+# ==============================================================================
+
+# Find test functions (TestXxx)
+(function_declaration
+  name: (identifier) @name
+  (#match? @name "^Test[A-Z]")
+  parameters: (parameter_list
+    (parameter_declaration
+      type: (pointer_type
+        (qualified_type
+          package: (package_identifier) @pkg
+          name: (type_identifier) @type)
+        (#eq? @pkg "testing")
+        (#eq? @type "T"))))) @test_func
+
+# Find benchmark functions (BenchmarkXxx)
+(function_declaration
+  name: (identifier) @name
+  (#match? @name "^Benchmark[A-Z]")
+  parameters: (parameter_list
+    (parameter_declaration
+      type: (pointer_type
+        (qualified_type
+          package: (package_identifier) @pkg
+          name: (type_identifier) @type)
+        (#eq? @pkg "testing")
+        (#eq? @type "B"))))) @benchmark_func
+
+# Find example functions (ExampleXxx)
+(function_declaration
+  name: (identifier) @name
+  (#match? @name "^Example[A-Z]?")) @example_func
+
+# Find table-driven test patterns (slices of anonymous structs)
+(short_var_declaration
+  left: (expression_list (identifier) @name)
+  (#match? @name "tests|cases|scenarios")
+  right: (expression_list
+    (composite_literal
+      type: (slice_type)))) @table_tests
+
+# Find t.Run calls (subtests)
+(call_expression
+  function: (selector_expression
+    operand: (identifier) @t
+    field: (field_identifier) @method
+    (#eq? @method "Run"))) @subtest
+
+# ==============================================================================
+# ADVANCED PATTERNS - Combine Multiple Conditions
+# ==============================================================================
+
+# Find HTTP handler functions (func(w http.ResponseWriter, r *http.Request))
+(function_declaration
+  name: (identifier) @name
+  parameters: (parameter_list
+    (parameter_declaration
+      type: (qualified_type
+        package: (package_identifier) @pkg1
+        name: (type_identifier) @type1)
+      (#eq? @pkg1 "http")
+      (#eq? @type1 "ResponseWriter"))
+    (parameter_declaration
+      type: (pointer_type
+        (qualified_type
+          package: (package_identifier) @pkg2
+          name: (type_identifier) @type2)
+        (#eq? @pkg2 "http")
+        (#eq? @type2 "Request"))))) @http_handler
+
+# Find exported variables (package-level, capitalized)
+(var_declaration
+  (var_spec
+    name: (identifier) @name
+    (#match? @name "^[A-Z]"))) @exported_var
+
+# Find init functions
+(function_declaration
+  name: (identifier) @name
+  (#eq? @name "init")
+  parameters: (parameter_list)) @init_func
+
+# Find main function
+(function_declaration
+  name: (identifier) @name
+  (#eq? @name "main")
+  parameters: (parameter_list)) @main_func
+
+# Find method sets (all methods for a type)
+(method_declaration
+  receiver: (parameter_list
+    (parameter_declaration
+      type: [
+        (pointer_type (type_identifier) @type)
+        (type_identifier) @type
+      ]))
+  name: (field_identifier) @method_name)
+
+# Find interfaces with specific methods
+(type_declaration
+  (type_spec
+    name: (type_identifier) @interface_name
+    type: (interface_type
+      (method_spec_list
+        (method_spec
+          name: (field_identifier) @method
+          (#eq? @method "Error"))))))
+
+# Find struct tags (json, xml, db, etc.)
+(field_declaration
+  tag: (raw_string_literal) @tag
+  (#match? @tag "json:|xml:|db:|yaml:|toml:|protobuf:"))
+
+# Find empty function bodies (potential stubs)
+(function_declaration
+  name: (identifier) @name
+  body: (block)) @empty_func
+
+# Find locks and unlocks (mu.Lock(), mu.Unlock())
+(call_expression
+  function: (selector_expression
+    operand: (_) @mutex
+    field: (field_identifier) @method
+    (#match? @method "^(Lock|Unlock|RLock|RUnlock)$"))) @mutex_op
+
+# Find context usage patterns
+(call_expression
+  function: (selector_expression
+    operand: (identifier) @pkg
+    field: (field_identifier) @fn
+    (#eq? @pkg "context")
+    (#match? @fn "^(Background|TODO|WithCancel|WithTimeout|WithValue)$"))) @context_create
+
+# ==============================================================================
+# CODE SMELL DETECTION
+# ==============================================================================
+
+# Find deeply nested blocks (3+ levels deep)
+(block
+  (if_statement
+    consequence: (block
+      (if_statement)))) @deep_nesting
+
+# Find long parameter lists (4+ parameters)
+(parameter_list
+  (parameter_declaration)
+  (parameter_declaration)
+  (parameter_declaration)
+  (parameter_declaration)
+  (parameter_declaration)+) @long_params
+
+# Find magic numbers (literals in expressions, excluding 0, 1, -1)
+(binary_expression
+  [
+    left: (int_literal) @magic
+    right: (int_literal) @magic
+  ]
+  (#not-match? @magic "^[01]$|^-1$"))
+
+# Find unused blank identifiers
+(blank_identifier) @blank
+
+# Find potential race conditions (global var access in goroutines)
+(go_statement
+  (call_expression
+    function: (func_literal
+      body: (block
+        (assignment_statement) @assign))))
+
+# ==============================================================================
+# REFLECTION AND METAPROGRAMMING
+# ==============================================================================
+
+# Find reflect package usage
+(call_expression
+  function: (selector_expression
+    operand: (identifier) @pkg
+    (#eq? @pkg "reflect"))) @reflect_call
+
+# Find type conversions (Type(value))
+(call_expression
+  function: (type_identifier) @type) @type_conversion
+
+# Find type switches for interface implementation checks
+(type_switch_statement
+  initializer: (short_var_declaration
+    right: (expression_list
+      (type_assertion_expression) @assert))) @type_switch_init
+
+# ==============================================================================
+# PACKAGE AND MODULE PATTERNS
+# ==============================================================================
+
+# Find package declarations
+(package_clause
+  (package_identifier) @package_name) @package
+
+# Find main packages
+(package_clause
+  (package_identifier) @pkg
+  (#eq? @pkg "main"))
+
+# Find test packages (_test suffix)
+(package_clause
+  (package_identifier) @pkg
+  (#match? @pkg "_test$"))

@@ -56,7 +56,7 @@ tsq query -q '(type_declaration) @type' --file main.go
 > - `(function_declaration) @fn` - captures the whole function node
 > - `(function_declaration name: (identifier) @name)` - captures just the function name
 >
-> Run `tsq examples` for more query patterns.
+> Run `tsq example-queries` for more query patterns.
 
 ### Symbols - Extract code symbols
 

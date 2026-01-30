@@ -23,6 +23,7 @@ func main() {
 			symbolsCommand(),
 			outlineCommand(),
 			refsCommand(),
+			examplesCommand(),
 		},
 	}
 
@@ -41,7 +42,7 @@ func queryCommand() *cli.Command {
 			"Use @name syntax to capture nodes:\n" +
 			"  (function_declaration) @fn                       - captures whole function\n" +
 			"  (function_declaration name: (identifier) @name)  - captures just the name\n\n" +
-			"Run 'tsq examples' for more query patterns.",
+			"Run 'tsq example-queries' for more query patterns.",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "query",
