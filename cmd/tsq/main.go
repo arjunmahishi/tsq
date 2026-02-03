@@ -24,6 +24,7 @@ func main() {
 			outlineCommand(),
 			refsCommand(),
 			examplesCommand(),
+			skillCommand(),
 		},
 	}
 
